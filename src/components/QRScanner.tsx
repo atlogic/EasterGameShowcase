@@ -1,12 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 
+import { Language } from '../types';
+import { TRANSLATIONS } from '../constants';
+
 interface QRScannerProps {
   onScan: (decodedText: string) => void;
   expectedValue: string;
+  language: Language;
 }
 
-export const QRScanner: React.FC<QRScannerProps> = ({ onScan, expectedValue }) => {
+export const QRScanner: React.FC<QRScannerProps> = ({ onScan, expectedValue, language }) => {
+  const t = TRANSLATIONS[language];
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
@@ -27,7 +32,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, expectedValue }) =
           onScan(decodedText);
         } else {
           // Optional: handle wrong QR code
-          console.log("Zły kod QR:", decodedText);
+          console.log(language === 'pl' ? "Zły kod QR:" : "Wrong QR code:", decodedText);
         }
       },
       (error) => {
@@ -47,7 +52,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, expectedValue }) =
       <div id="reader" className="w-full"></div>
       <div className="p-4 text-center bg-yellow-50">
         <p className="text-sm font-medium text-yellow-800">
-          Skieruj aparat na kod QR ukryty w tym miejscu!
+          {t.scannerHint}
         </p>
       </div>
     </div>

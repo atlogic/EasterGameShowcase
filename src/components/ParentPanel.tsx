@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Checkpoint } from '../types';
 import { saveGameToFirebase, STORAGE_KEY } from '../constants';
 import { 
@@ -18,20 +18,38 @@ import {
   Calendar,
   Printer,
   LayoutGrid,
-  PlusCircle
+  PlusCircle,
+  LogOut,
+  Share2,
+  Mail,
+  Lock
 } from 'lucide-react';
-import { loadSessionsFromFirebase, loadUserGamesFromFirebase, generateGameId, GAME_ID_KEY } from '../constants';
-import { GameSession, GameData } from '../types';
+import { loadSessionsFromFirebase, loadUserGamesFromFirebase, generateGameId, GAME_ID_KEY, TRANSLATIONS } from '../constants';
+import { GameSession, GameData, Language } from '../types';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signOut,
+  User
+} from 'firebase/auth';
+import { auth } from '../firebase';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface ParentPanelProps {
   checkpoints: Checkpoint[];
   gameId: string;
+  language: Language;
   onUpdate: (newCheckpoints: Checkpoint[], newGameId: string) => void;
   onPrint: () => void;
   onClose: () => void;
 }
 
-export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, onUpdate, onPrint, onClose }) => {
+export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, language, onUpdate, onPrint, onClose }) => {
+  const t = TRANSLATIONS[language];
+  const [user, setUser] = useState<User | null>(auth.currentUser);
   const [localCheckpoints, setLocalCheckpoints] = useState<Checkpoint[]>(checkpoints);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -41,9 +59,64 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [isLoadingGames, setIsLoadingGames] = useState(false);
   const [selectedSession, setSelectedSession] = useState<GameSession | null>(null);
+  
+  // Auth state
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  
+  // Share modal
+  const [shareGame, setShareGame] = useState<GameData | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u) {
+        setAuthError('');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+    } catch (err: any) {
+      console.error("Auth error:", err);
+      setAuthError(t.authError || "Błąd autoryzacji");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setAuthLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error("Google Auth error:", err);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    onClose();
+  };
 
   const startNewGame = () => {
-    if (confirm("Czy na pewno chcesz stworzyć nową grę? Niezapisane zmiany zostaną utracone.")) {
+    if (confirm(t.confirmNewGame)) {
       const newId = generateGameId();
       setLocalCheckpoints([]);
       onUpdate([], newId);
@@ -154,14 +227,14 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
         updateCheckpoint(id, { image: compressed });
       } catch (err) {
         console.error("Compression error:", err);
-        alert("Błąd podczas przetwarzania zdjęcia.");
+        alert(t.errorProcessingImage);
       }
     }
   };
 
   const handleSave = async () => {
     if (localCheckpoints.length === 0) {
-      alert("Dodaj przynajmniej jeden punkt gry!");
+      alert(t.addAtLeastOne);
       return;
     }
     
@@ -170,15 +243,15 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
       await saveGameToFirebase(gameId, localCheckpoints);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(localCheckpoints));
       onUpdate(localCheckpoints, gameId);
-      alert("Gra została zapisana w chmurze! Kod: " + gameId);
+      alert(t.savedSuccess + gameId);
       onClose();
     } catch (error: any) {
       console.error("Save error:", error);
-      let msg = "Błąd podczas zapisywania. Sprawdź połączenie z internetem.";
+      let msg = t.errorGeneric;
       if (error.message && error.message.includes("quota")) {
-        msg = "Przekroczono limit bazy danych (Quota exceeded). Spróbuj jutro.";
+        msg = t.errorQuota;
       } else if (error.message && error.message.includes("large")) {
-        msg = "Gra jest za duża! Spróbuj zmniejszyć zdjęcia.";
+        msg = t.errorLarge;
       }
       alert(msg);
     } finally {
@@ -192,44 +265,143 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
     setTimeout(() => setCopied(false), 2000);
   };
 
+  if (!user) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+          <div className="p-6 bg-green-600 text-white flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-black uppercase tracking-tight">{t.loginTitle}</h2>
+              <p className="text-green-100 text-xs font-bold uppercase">{t.loginDesc}</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+              <X size={24} />
+            </button>
+          </div>
+
+          <form onSubmit={handleAuth} className="p-6 space-y-4">
+            {authError && (
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-xs font-bold">
+                <AlertCircle size={16} /> {authError}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">{t.email}</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-green-500 focus:bg-white transition-all outline-none text-sm font-bold"
+                  placeholder="email@example.com"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">{t.password}</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input 
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-green-500 focus:bg-white transition-all outline-none text-sm font-bold"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            <button 
+              type="submit"
+              disabled={authLoading}
+              className="w-full py-4 bg-green-600 text-white font-black rounded-xl shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+            >
+              {authLoading ? <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" /> : (isLogin ? t.signIn : t.signUp)}
+            </button>
+
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+              <div className="relative flex justify-center text-[10px] uppercase font-black text-gray-300 bg-white px-2">LUB</div>
+            </div>
+
+            <button 
+              type="button"
+              onClick={handleGoogleAuth}
+              className="w-full py-3 border-2 border-gray-100 text-gray-600 font-black rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2 text-sm uppercase"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+              {t.googleSignIn}
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              className="w-full text-center text-xs font-bold text-green-600 hover:underline"
+            >
+              {isLogin ? t.noAccount : t.haveAccount}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4">
-      <div className="bg-white w-full max-w-4xl max-h-[95vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
         {/* Header */}
-        <div className="p-3 sm:p-4 border-b flex justify-between items-center bg-green-50">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-            <h2 className="text-lg sm:text-xl font-black text-green-800">KONFIGURACJA GRY</h2>
-            <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-green-200 shadow-sm">
-              <span className="text-[9px] font-bold text-green-600 uppercase">KOD:</span>
-              <button onClick={copyGameId} className="flex items-center gap-2 hover:opacity-70 transition-all">
-                <span className="font-mono font-black text-green-700 text-base">{gameId}</span>
-                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} className="text-gray-400" />}
-              </button>
+        <div className="p-4 sm:p-6 bg-green-600 text-white flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <div className="bg-white/20 p-2 rounded-xl">
+              <LayoutGrid size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">{t.parentPanel}</h2>
+              <p className="text-green-100 text-[10px] font-bold uppercase tracking-widest">{user.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => setActiveTab('config')}
-              className={`px-4 py-2 rounded-lg font-bold text-xs transition-all ${activeTab === 'config' ? 'bg-green-600 text-white' : 'bg-white text-gray-400 border border-gray-200'}`}
+              onClick={handleLogout}
+              className="p-2 hover:bg-white/20 rounded-full transition-colors"
+              title={t.logout}
             >
-              EDYCJA
+              <LogOut size={20} />
             </button>
             <button 
-              onClick={loadMyGames}
-              className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'my-games' ? 'bg-green-600 text-white' : 'bg-white text-gray-400 border border-gray-200'}`}
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-full transition-colors"
             >
-              <LayoutGrid size={14} /> MOJE GRY
-            </button>
-            <button 
-              onClick={loadHistory}
-              className={`px-4 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-2 ${activeTab === 'history' ? 'bg-green-600 text-white' : 'bg-white text-gray-400 border border-gray-200'}`}
-            >
-              <History size={14} /> HISTORIA
-            </button>
-            <button onClick={onClose} className="p-1.5 hover:bg-green-100 rounded-full transition-colors ml-2">
-              <X size={20} className="text-green-800" />
+              <X size={24} />
             </button>
           </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex bg-green-50 p-2 gap-2 border-b">
+          <button 
+            onClick={() => setActiveTab('config')}
+            className={`flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all ${activeTab === 'config' ? 'bg-green-600 text-white shadow-md' : 'text-green-600 hover:bg-green-100'}`}
+          >
+            {t.edit}
+          </button>
+          <button 
+            onClick={loadMyGames}
+            className={`flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 'my-games' ? 'bg-green-600 text-white shadow-md' : 'text-green-600 hover:bg-green-100'}`}
+          >
+            <LayoutGrid size={14} /> {t.myGames}
+          </button>
+          <button 
+            onClick={loadHistory}
+            className={`flex-1 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeTab === 'history' ? 'bg-green-600 text-white shadow-md' : 'text-green-600 hover:bg-green-100'}`}
+          >
+            <History size={14} /> {t.history}
+          </button>
         </div>
 
         {/* Content */}
@@ -241,21 +413,21 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                   onClick={startNewGame}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg font-bold text-xs hover:bg-blue-100 transition-all"
                 >
-                  <PlusCircle size={16} /> NOWA GRA
+                  <PlusCircle size={16} /> {t.newGame}
                 </button>
                 {localCheckpoints.length > 0 && (
                   <button 
                     onClick={onPrint}
                     className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-lg font-bold text-xs hover:bg-purple-100 transition-all"
                   >
-                    <Printer size={16} /> DRUKUJ KODY QR
+                    <Printer size={16} /> {t.printQR}
                   </button>
                 )}
               </div>
               {localCheckpoints.length === 0 && (
                 <div className="text-center py-8 text-gray-400">
                   <AlertCircle size={40} className="mx-auto mb-3 opacity-20" />
-                  <p className="text-sm">Twoja trasa jest pusta. Dodaj pierwszy punkt!</p>
+                  <p className="text-sm">{t.emptyRoute}</p>
                 </div>
               )}
 
@@ -270,32 +442,32 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                     <div className="md:col-span-9 space-y-3">
                       <div className="grid grid-cols-1 gap-3">
                         <div>
-                          <label className="block text-[9px] font-black text-gray-400 uppercase mb-0.5 ml-1">Nazwa Miejsca</label>
+                          <label className="block text-[9px] font-black text-gray-400 uppercase mb-0.5 ml-1">{t.stepName}</label>
                           <input 
                             type="text" 
                             value={cp.name}
                             onChange={(e) => updateCheckpoint(cp.id, { name: e.target.value })}
                             className="w-full p-2.5 text-base font-bold rounded-lg border-2 border-gray-100 focus:border-green-500 focus:bg-white bg-gray-50 outline-none transition-all"
-                            placeholder="Gdzie ukryjesz kod?"
+                            placeholder={language === 'pl' ? 'Gdzie ukryjesz kod?' : 'Where will you hide the code?'}
                           />
                         </div>
                         <div>
-                          <label className="block text-[9px] font-black text-gray-400 uppercase mb-0.5 ml-1">Wskazówka / Zagadka</label>
+                          <label className="block text-[9px] font-black text-gray-400 uppercase mb-0.5 ml-1">{t.stepHint}</label>
                           <textarea 
                             value={cp.hint}
                             onChange={(e) => updateCheckpoint(cp.id, { hint: e.target.value })}
                             className="w-full p-2.5 text-sm font-medium rounded-lg border-2 border-gray-100 focus:border-green-500 focus:bg-white bg-gray-50 outline-none transition-all h-16 resize-none"
-                            placeholder="Podpowiedź dla dzieci..."
+                            placeholder={language === 'pl' ? 'Podpowiedź dla dzieci...' : 'Hint for children...'}
                           />
                         </div>
                         <div>
-                          <label className="block text-[9px] font-black text-gray-400 uppercase mb-0.5 ml-1">Zadanie</label>
+                          <label className="block text-[9px] font-black text-gray-400 uppercase mb-0.5 ml-1">{t.stepTask}</label>
                           <input 
                             type="text" 
                             value={cp.task}
                             onChange={(e) => updateCheckpoint(cp.id, { task: e.target.value })}
                             className="w-full p-2.5 text-sm font-bold rounded-lg border-2 border-gray-100 focus:border-purple-500 focus:bg-white bg-gray-50 outline-none transition-all"
-                            placeholder="Co muszą zrobić?"
+                            placeholder={language === 'pl' ? 'Co muszą zrobić?' : 'What do they have to do?'}
                           />
                         </div>
                       </div>
@@ -310,7 +482,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                           }`}
                         >
                           <Camera size={14} />
-                          {cp.requirePhoto ? 'ZDJĘCIE' : 'BEZ ZDJĘCIA'}
+                          {cp.requirePhoto ? t.photo : (language === 'pl' ? 'BEZ ZDJĘCIA' : 'NO PHOTO')}
                         </button>
                         <button 
                           onClick={() => updateCheckpoint(cp.id, { requireEvaluation: !cp.requireEvaluation })}
@@ -321,7 +493,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                           }`}
                         >
                           <Star size={14} />
-                          {cp.requireEvaluation ? 'OCENA' : 'BEZ OCENY'}
+                          {cp.requireEvaluation ? t.evalRequired : t.evalNotRequired}
                         </button>
                         <button 
                           onClick={() => updateCheckpoint(cp.id, { requireAudio: !cp.requireAudio })}
@@ -332,10 +504,10 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                           }`}
                         >
                           <Mic size={14} />
-                          {cp.requireAudio ? 'NAGRANIE' : 'BEZ NAGRANIA'}
+                          {cp.requireAudio ? t.audioRequired : t.audioNotRequired}
                         </button>
                         <div className="px-2 py-1 bg-green-50 text-green-700 rounded-lg border border-green-100 font-mono font-bold text-[11px]">
-                          QR: #{cp.qrNumber}
+                          {t.qrNumber}{cp.qrNumber}
                         </div>
                       </div>
                     </div>
@@ -349,7 +521,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                           ) : (
                             <div className="flex flex-col items-center text-gray-300">
                               <ImageIcon size={24} />
-                              <span className="text-[9px] font-bold mt-1 uppercase">Zdjęcie</span>
+                              <span className="text-[9px] font-bold mt-1 uppercase">{t.photo}</span>
                             </div>
                           )}
                         </div>
@@ -360,7 +532,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                           onClick={() => updateCheckpoint(cp.id, { image: undefined })}
                           className="text-[9px] font-bold text-red-400 hover:text-red-600 uppercase tracking-wider"
                         >
-                          Usuń
+                          {t.delete}
                         </button>
                       )}
                     </div>
@@ -369,7 +541,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                   <button 
                     onClick={() => removeCheckpoint(cp.id)}
                     className="absolute top-2 right-2 p-1.5 text-gray-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Usuń punkt"
+                    title={t.deleteStep}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -381,7 +553,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                 className="w-full py-6 border-4 border-dashed border-gray-200 rounded-2xl text-gray-300 hover:text-green-500 hover:border-green-300 hover:bg-green-50/30 transition-all flex flex-col items-center gap-1 group"
               >
                 <Plus size={32} className="group-hover:scale-110 transition-transform" />
-                <span className="font-black text-sm uppercase tracking-widest">Dodaj kolejny krok</span>
+                <span className="font-black text-sm uppercase tracking-widest">{t.addStep}</span>
               </button>
             </>
           ) : activeTab === 'my-games' ? (
@@ -389,17 +561,17 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
               {isLoadingGames ? (
                 <div className="flex flex-col items-center py-12 text-gray-400">
                   <div className="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4" />
-                  <p className="text-sm font-bold">Wczytywanie gier...</p>
+                  <p className="text-sm font-bold">{t.loadingGames}</p>
                 </div>
               ) : userGames.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <LayoutGrid size={48} className="mx-auto mb-4 opacity-10" />
-                  <p className="text-sm">Nie masz jeszcze żadnych zapisanych gier.</p>
+                  <p className="text-sm">{t.noGames}</p>
                   <button 
                     onClick={startNewGame}
                     className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg font-bold text-sm"
                   >
-                    Stwórz pierwszą grę
+                    {t.firstGame}
                   </button>
                 </div>
               ) : (
@@ -416,12 +588,23 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                     >
                       <div className="flex justify-between items-start mb-2">
                         <span className="font-mono font-black text-green-700">{game.id}</span>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">
-                          {new Date(game.createdAt).toLocaleDateString('pl-PL')}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShareGame(game);
+                            }}
+                            className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200"
+                          >
+                            <Share2 size={14} />
+                          </button>
+                          <span className="text-[10px] font-bold text-gray-400 uppercase">
+                            {new Date(game.createdAt).toLocaleDateString(language === 'pl' ? 'pl-PL' : 'en-US')}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-sm font-bold text-gray-700 mb-1">
-                        {game.checkpoints.length} punktów
+                        {game.checkpoints.length} {t.points}
                       </p>
                       <p className="text-[10px] text-gray-400 font-medium truncate">
                         {game.checkpoints.map(cp => cp.name).join(', ')}
@@ -436,12 +619,12 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
               {isLoadingSessions ? (
                 <div className="flex flex-col items-center py-12 text-gray-400">
                   <div className="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4" />
-                  <p className="text-sm font-bold">Wczytywanie historii...</p>
+                  <p className="text-sm font-bold">{t.loadingHistory}</p>
                 </div>
               ) : sessions.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <History size={48} className="mx-auto mb-4 opacity-10" />
-                  <p className="text-sm">Brak zapisanych rozgrywek dla tej gry.</p>
+                  <p className="text-sm">{t.noSessions}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-3">
@@ -458,7 +641,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                           <div className="text-left">
                             <h4 className="font-black text-gray-800 uppercase text-sm">{session.teamName}</h4>
                             <p className="text-[10px] text-gray-400 font-bold uppercase">
-                              {new Date(session.timestamp).toLocaleString('pl-PL')} • {session.members.length} osób
+                              {new Date(session.timestamp).toLocaleString(language === 'pl' ? 'pl-PL' : 'en-US')} • {session.members.length} {t.people}
                             </p>
                           </div>
                         </div>
@@ -481,7 +664,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
                               return (
                                 <div key={idx} className="bg-white p-3 rounded-lg border border-gray-100 space-y-2">
                                   <div className="flex justify-between items-center">
-                                    <span className="text-[10px] font-black text-green-600 uppercase">Punkt #{idx + 1}: {cp?.name || 'Nieznany'}</span>
+                                    <span className="text-[10px] font-black text-green-600 uppercase">{t.step} #{idx + 1}: {cp?.name || t.unknown}</span>
                                     {res.bestPerformer && (
                                       <span className="flex items-center gap-1 text-[10px] font-black text-yellow-600 uppercase">
                                         <Star size={10} fill="currentColor" /> {res.bestPerformer}
@@ -521,7 +704,7 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
             onClick={onClose}
             className="flex-1 py-3 bg-gray-100 text-gray-600 font-black rounded-lg hover:bg-gray-200 transition-colors uppercase tracking-wider text-sm"
           >
-            Anuluj
+            {t.cancel}
           </button>
           <button 
             onClick={handleSave}
@@ -533,15 +716,53 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, o
             {isSaving ? (
               <>
                 <div className="w-4 h-4 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                Zapisywanie...
+                {t.saving}
               </>
             ) : (
               <>
-                <Save size={20} /> Zapisz i udostępnij
+                <Save size={20} /> {t.saveAndShare}
               </>
             )}
           </button>
         </div>
+        {/* Share Game Modal */}
+        {shareGame && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="p-6 bg-green-600 text-white flex justify-between items-center">
+                <h3 className="text-xl font-black uppercase tracking-tight">{t.shareGame}</h3>
+                <button onClick={() => setShareGame(null)} className="p-2 hover:bg-white/20 rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-8 flex flex-col items-center gap-6">
+                <div className="p-4 bg-white rounded-2xl border-4 border-green-50 shadow-inner">
+                  <QRCodeSVG 
+                    value={`${window.location.origin}${window.location.pathname}?game=${shareGame.id}`}
+                    size={200}
+                    level="H"
+                  />
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-black text-green-700 tracking-widest mb-1">{shareGame.id}</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase">{t.scanToPlay}</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    const url = `${window.location.origin}${window.location.pathname}?game=${shareGame.id}`;
+                    navigator.clipboard.writeText(url);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="w-full py-4 bg-gray-100 text-gray-600 font-black rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+                >
+                  {copied ? <Check size={20} className="text-green-600" /> : <Copy size={20} />}
+                  {copied ? t.copyLink : t.share}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

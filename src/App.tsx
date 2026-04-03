@@ -39,18 +39,24 @@ import {
   saveSessionToFirebase,
   STORAGE_KEY, 
   GAME_ID_KEY, 
-  generateGameId 
+  generateGameId,
+  TRANSLATIONS
 } from './constants';
-import { Checkpoint, TeamInfo, GameSession, CheckpointResult } from './types';
+import { Checkpoint, TeamInfo, GameSession, CheckpointResult, Language } from './types';
+
+import { auth } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 type GameState = 'START' | 'TEAM_SETUP' | 'RIDDLE' | 'SCANNING' | 'TASK' | 'EVALUATION' | 'FINISHED' | 'PRINT';
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(auth.currentUser);
   const [gameState, setGameState] = useState<GameState>('START');
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [gameId, setGameId] = useState<string>('');
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [showParentPanel, setShowParentPanel] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [showLoadPrompt, setShowLoadPrompt] = useState(false);
   const [loadId, setLoadId] = useState('');
@@ -65,6 +71,7 @@ export default function App() {
   const [recordedAudio, setRecordedAudio] = useState<string | null>(null);
   const [showShareQR, setShowShareQR] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [language, setLanguage] = useState<Language>('pl');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,9 +108,9 @@ export default function App() {
       setIsRecording(true);
     } catch (err: any) {
       console.error("Mic error:", err);
-      let msg = "Błąd mikrofonu. Sprawdź uprawnienia.";
-      if (err.name === 'NotAllowedError') msg = "Brak uprawnień do mikrofonu. Zezwól na dostęp w przeglądarce.";
-      if (err.name === 'NotFoundError') msg = "Nie znaleziono mikrofonu.";
+      let msg = t.errorMic;
+      if (err.name === 'NotAllowedError') msg = t.errorMicPermission;
+      if (err.name === 'NotFoundError') msg = t.errorMicNotFound;
       alert(msg);
     }
   };
@@ -139,11 +146,18 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const currentStage = checkpoints[currentStageIndex];
 
   const handleStart = () => {
     if (checkpoints.length === 0) {
-      alert("Najpierw dodaj punkty w panelu rodzica!");
+      alert(t.addPointsFirst);
       return;
     }
     setGameState('TEAM_SETUP');
@@ -152,11 +166,11 @@ export default function App() {
   const handleTeamSubmit = () => {
     const validMembers = teamInfo.members.filter(m => m.trim() !== '');
     if (validMembers.length < 1) {
-      alert("Dodaj przynajmniej jedno imię!");
+      alert(t.addOneName);
       return;
     }
     if (!teamInfo.name.trim()) {
-      alert("Wpisz nazwę drużyny!");
+      alert(t.enterTeamName);
       return;
     }
     setTeamInfo({ ...teamInfo, members: validMembers });
@@ -284,7 +298,7 @@ export default function App() {
 
   const handleEvaluationSubmit = () => {
     if (!bestPerformer) {
-      alert("Wybierz osobę, która najlepiej wykonała zadanie!");
+      alert(t.chooseBest);
       return;
     }
     setVotes(prev => ({
@@ -320,16 +334,6 @@ export default function App() {
     }
   };
 
-  const checkPassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password.toLowerCase() === 'wielkanoc') {
-      setShowPasswordPrompt(false);
-      setShowParentPanel(true);
-      setPassword('');
-    } else {
-      alert("Błędne hasło!");
-    }
-  };
 
   const handleLoadGameById = async (id: string) => {
     setIsLoading(true);
@@ -343,7 +347,7 @@ export default function App() {
         return true;
       }
     } catch (error) {
-      console.error("Błąd podczas pobierania gry:", error);
+      console.error(t.loadError, error);
     } finally {
       setIsLoading(false);
     }
@@ -358,14 +362,16 @@ export default function App() {
     if (success) {
       setShowLoadPrompt(false);
       setLoadId('');
-      alert("Gra została pomyślnie pobrana!");
+      alert(t.loadSuccess);
     } else {
-      alert("Nie znaleziono gry o takim kodzie.");
+      alert(t.errorLoad);
     }
   };
 
+  const t = TRANSLATIONS[language];
+
   if (gameState === 'PRINT' && showParentPanel) {
-    return <PrintPage onBack={() => setGameState('START')} />;
+    return <PrintPage onBack={() => setGameState('START')} language={language} />;
   }
 
   return (
@@ -376,25 +382,51 @@ export default function App() {
           <div className="bg-yellow-400 p-2 rounded-full shadow-md">
             <Egg className="text-white" size={24} />
           </div>
-          <h1 className="text-xl font-bold text-green-800 hidden sm:block">Wielkanocna Przygoda</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-green-800 truncate max-w-[150px] sm:max-w-none">
+            {t.title}
+          </h1>
         </div>
         
-        {gameState !== 'FINISHED' && (
-          <div className="flex items-center gap-4">
-            {checkpoints.length > 0 && gameState !== 'START' && (
-              <div className="bg-white px-4 py-1 rounded-full shadow-sm border border-green-100 flex items-center gap-2">
-                <Users size={16} className="text-green-600" />
-                <span className="text-sm font-bold text-green-700">{currentStageIndex + 1}/{checkpoints.length}</span>
-              </div>
-            )}
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Language Switcher */}
+          <div className="flex bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
             <button 
-              onClick={() => setShowPasswordPrompt(true)}
-              className="p-2 text-gray-400 hover:text-green-600 transition-colors"
+              onClick={() => setLanguage('pl')}
+              className={`px-2 py-1 text-[10px] font-bold rounded ${language === 'pl' ? 'bg-green-600 text-white' : 'text-gray-400'}`}
             >
-              <Settings size={20} />
+              PL
+            </button>
+            <button 
+              onClick={() => setLanguage('en')}
+              className={`px-2 py-1 text-[10px] font-bold rounded ${language === 'en' ? 'bg-green-600 text-white' : 'text-gray-400'}`}
+            >
+              EN
             </button>
           </div>
-        )}
+
+          {gameState !== 'FINISHED' && (
+            <div className="flex items-center gap-2 sm:gap-4">
+              {checkpoints.length > 0 && gameState !== 'START' && (
+                <div className="bg-white px-3 sm:px-4 py-1 rounded-full shadow-sm border border-green-100 flex items-center gap-2">
+                  <Users size={14} className="text-green-600 sm:size-4" />
+                  <span className="text-xs sm:text-sm font-bold text-green-700">{currentStageIndex + 1}/{checkpoints.length}</span>
+                </div>
+              )}
+              <button 
+                onClick={() => setShowHelp(true)}
+                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                <HelpCircle size={20} />
+              </button>
+              <button 
+                onClick={() => setShowParentPanel(true)}
+                className="p-2 text-gray-400 hover:text-green-600 transition-colors"
+              >
+                <Settings size={20} />
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="w-full max-w-xl flex-1 flex flex-col justify-center">
@@ -431,24 +463,33 @@ export default function App() {
                 </motion.div>
               </div>
               
-              <h2 className="text-3xl font-extrabold text-green-900">Wielka Gra Terenowa!</h2>
+              <h2 className="text-3xl font-extrabold text-green-900">{t.title}!</h2>
               <p className="text-lg text-gray-600">
-                Witajcie! Rozwiązujcie zagadki, skanujcie kody i wykonujcie zadania, aby znaleźć skarb!
+                {checkpoints.length > 0 ? t.welcome : t.firstGame}
               </p>
               
-              <button 
-                onClick={handleStart}
-                className="w-full py-4 bg-green-500 hover:bg-green-600 text-white text-xl font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-3"
-              >
-                ZACZYNAMY! <ArrowRight />
-              </button>
+              {checkpoints.length > 0 ? (
+                <button 
+                  onClick={handleStart}
+                  className="w-full py-4 bg-green-500 hover:bg-green-600 text-white text-xl font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-3"
+                >
+                  {t.start} <ArrowRight />
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setShowParentPanel(true)}
+                  className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-3"
+                >
+                  {t.createNewGame} <Plus />
+                </button>
+              )}
 
               <div className="grid grid-cols-1 gap-3 pt-4">
                 <button 
                   onClick={() => setShowLoadPrompt(true)}
                   className="py-3 bg-blue-50 text-blue-600 font-bold rounded-xl flex items-center justify-center gap-2 text-sm"
                 >
-                  <Download size={18} /> POBIERZ GRĘ
+                  <Download size={18} /> {t.downloadGame}
                 </button>
               </div>
             </motion.div>
@@ -466,8 +507,8 @@ export default function App() {
                 <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
                   <UserPlus className="text-blue-600" size={32} />
                 </div>
-                <h2 className="text-2xl font-black text-blue-900 uppercase">Stwórz Drużynę</h2>
-                <p className="text-gray-500">Wpiszcie swoje imiona, aby zacząć przygodę!</p>
+                <h2 className="text-2xl font-black text-blue-900 uppercase">{t.teamSetup}</h2>
+                <p className="text-gray-500">{t.teamMembers}</p>
               </div>
 
               <div className="space-y-4 max-h-[40vh] overflow-y-auto p-2">
@@ -478,7 +519,7 @@ export default function App() {
                       value={member}
                       onChange={(e) => updateMember(index, e.target.value)}
                       className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-xl focus:border-blue-400 outline-none font-bold text-lg"
-                      placeholder={`Imię ${index + 1}...`}
+                      placeholder={t.memberName + ` ${index + 1}...`}
                     />
                     {member.trim() !== '' && (
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-500">
@@ -491,7 +532,7 @@ export default function App() {
 
               <div className="pt-4 space-y-4">
                 <div>
-                  <label className="block text-xs font-black text-gray-400 uppercase mb-1 ml-1">Nazwa Waszej Drużyny</label>
+                  <label className="block text-xs font-black text-gray-400 uppercase mb-1 ml-1">{t.teamName}</label>
                   <input 
                     type="text"
                     value={teamInfo.name}
@@ -505,7 +546,7 @@ export default function App() {
                   onClick={handleTeamSubmit}
                   className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl hover:bg-blue-700 transition-all uppercase tracking-widest"
                 >
-                  NAZWIJ DRUŻYNĘ I START!
+                  {t.start}
                 </button>
               </div>
             </motion.div>
@@ -522,7 +563,7 @@ export default function App() {
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3 text-blue-600">
                   <HelpCircle size={28} />
-                  <span className="font-bold tracking-widest uppercase text-sm">Zagadka #{currentStageIndex + 1}</span>
+                  <span className="font-bold tracking-widest uppercase text-sm">{t.riddle} #{currentStageIndex + 1}</span>
                 </div>
                 <button 
                   onClick={() => speak(currentStage.hint)}
@@ -546,7 +587,7 @@ export default function App() {
                 onClick={() => setGameState('SCANNING')}
                 className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white text-lg font-bold rounded-2xl shadow-lg transition-all flex items-center justify-center gap-3"
               >
-                <Camera size={24} /> ZNALAZŁEM! SKANUJĘ
+                <Camera size={24} /> {t.scanQR}
               </button>
             </motion.div>
           )}
@@ -560,20 +601,21 @@ export default function App() {
               className="space-y-6"
             >
               <div className="text-center mb-4">
-                <h3 className="text-xl font-bold text-green-800">Skanowanie kodu #{currentStage.qrNumber}</h3>
-                <p className="text-gray-500">Znajdź kod QR ukryty w tym miejscu!</p>
+                <h3 className="text-xl font-bold text-green-800">{t.scanQR} #{currentStage.qrNumber}</h3>
+                <p className="text-gray-500">{t.qrInstructions}</p>
               </div>
               
               <QRScanner 
                 onScan={handleQRScan} 
                 expectedValue={`egg_hunt_qr_${currentStage.qrNumber}`} 
+                language={language}
               />
 
               <button 
                 onClick={() => setGameState('RIDDLE')}
                 className="w-full py-3 text-gray-500 font-medium hover:text-gray-700 transition-colors"
               >
-                Wróć do zagadki
+                {t.back}
               </button>
             </motion.div>
           )}
@@ -598,7 +640,7 @@ export default function App() {
                 </button>
               </div>
               
-              <h3 className="text-2xl font-bold text-purple-900">Zadanie Zespołowe!</h3>
+              <h3 className="text-2xl font-bold text-purple-900">{t.task}</h3>
               <p className="text-lg text-gray-700 font-medium">
                 {currentStage.task}
               </p>
@@ -611,7 +653,7 @@ export default function App() {
                     ) : (
                       <div className="text-gray-400 flex flex-col items-center gap-2">
                         <Camera size={32} />
-                        <span className="text-sm">Zrób zdjęcie zadania</span>
+                        <span className="text-sm">{t.takePhoto}</span>
                       </div>
                     )}
                   </div>
@@ -628,14 +670,14 @@ export default function App() {
                       onClick={() => fileInputRef.current?.click()}
                       className="w-full py-4 bg-purple-500 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2"
                     >
-                      <Camera size={20} /> ZRÓB ZDJĘCIE
+                      <Camera size={20} /> {t.takePhoto}
                     </button>
                   ) : (
                     <button 
                       onClick={() => setCapturedPhoto(null)}
                       className="text-sm text-purple-500 font-bold flex items-center justify-center gap-1 mx-auto"
                     >
-                      <RotateCcw size={14} /> Powtórz zdjęcie
+                      <RotateCcw size={14} /> {t.retakePhoto}
                     </button>
                   )}
                 </div>
@@ -643,7 +685,7 @@ export default function App() {
 
               {currentStage.requireAudio && (
                 <div className="space-y-4 pt-4 border-t border-gray-100">
-                  <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">Nagraj wykonanie zadania:</p>
+                  <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">{t.recordAudio}:</p>
                   <div className="flex flex-col items-center gap-4">
                     {recordedAudio ? (
                       <div className="w-full bg-red-50 p-4 rounded-2xl border-2 border-red-100 flex flex-col items-center gap-3">
@@ -652,7 +694,7 @@ export default function App() {
                           onClick={() => setRecordedAudio(null)}
                           className="text-xs font-black text-red-400 uppercase tracking-widest hover:text-red-600"
                         >
-                          Nagraj ponownie
+                          {t.recordAgain}
                         </button>
                       </div>
                     ) : (
@@ -666,7 +708,7 @@ export default function App() {
                       >
                         {isRecording ? <Square size={48} fill="white" /> : <Mic size={48} />}
                         <span className="font-black mt-2 uppercase tracking-widest">
-                          {isRecording ? 'Zatrzymaj nagrywanie' : 'Nagraj dźwięk'}
+                          {isRecording ? t.stopRecording : t.recordAudioBtn}
                         </span>
                       </button>
                     )}
@@ -677,11 +719,11 @@ export default function App() {
               <button 
                 onClick={() => {
                   if (currentStage.requirePhoto && !capturedPhoto) {
-                    alert("Zrób zdjęcie, aby potwierdzić wykonanie zadania!");
+                    alert(t.errorPhoto);
                     return;
                   }
                   if (currentStage.requireAudio && !recordedAudio) {
-                    alert("Nagraj dźwięk, aby potwierdzić wykonanie zadania!");
+                    alert(t.errorMic);
                     return;
                   }
                   if (currentStage.requireEvaluation) {
@@ -697,7 +739,7 @@ export default function App() {
                     : 'bg-purple-500 hover:bg-purple-600'
                 }`}
               >
-                GOTOWE! <CheckCircle2 />
+                {t.finish} <CheckCircle2 />
               </button>
             </motion.div>
           )}
@@ -713,8 +755,8 @@ export default function App() {
               <div className="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
                 <Star className="text-yellow-600" size={32} />
               </div>
-              <h3 className="text-2xl font-black text-yellow-900 uppercase">Kto był najlepszy?</h3>
-              <p className="text-gray-600 font-medium">Wybierzcie osobę, która najlepiej poradziła sobie z tym zadaniem!</p>
+              <h3 className="text-2xl font-black text-yellow-900 uppercase">{t.evaluation}</h3>
+              <p className="text-gray-600 font-medium">{t.chooseBestDesc}</p>
 
               <div className="grid grid-cols-1 gap-3">
                 {teamInfo.members.map((member) => (
@@ -736,7 +778,7 @@ export default function App() {
                 onClick={handleEvaluationSubmit}
                 className="w-full py-4 bg-green-500 text-white font-black rounded-2xl shadow-xl hover:bg-green-600 transition-all uppercase tracking-widest"
               >
-                ZATWIERDŹ I DALEJ
+                {t.finish}
               </button>
             </motion.div>
           )}
@@ -750,9 +792,9 @@ export default function App() {
             >
               <Trophy size={100} className="text-yellow-400 mx-auto" />
               <div className="space-y-2">
-                <h2 className="text-4xl font-black text-green-900 leading-tight uppercase">BRAWO {teamInfo.name}!</h2>
+                <h2 className="text-4xl font-black text-green-900 leading-tight uppercase">{t.bravo} {teamInfo.name}!</h2>
                 <p className="text-xl text-gray-600">
-                  Udało się! Znaleźliście wszystkie jajka. Jesteście mistrzami!
+                  {t.congrats}
                 </p>
               </div>
 
@@ -770,10 +812,10 @@ export default function App() {
                   <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-100 space-y-3">
                     <div className="flex items-center justify-center gap-2 text-yellow-700 font-black uppercase tracking-wider">
                       <Star size={20} fill="currentColor" />
-                      <span>Wyróżnienie</span>
+                      <span>{t.specialMention}</span>
                       <Star size={20} fill="currentColor" />
                     </div>
-                    <p className="text-gray-600 font-medium">Najbardziej wyróżniał się:</p>
+                    <p className="text-gray-600 font-medium">{t.mostOutstanding}</p>
                     <div className="flex flex-wrap justify-center gap-2">
                       {winners.map((name) => (
                         <span key={name} className="px-4 py-2 bg-yellow-400 text-white font-black rounded-xl shadow-md text-lg">
@@ -782,7 +824,7 @@ export default function App() {
                       ))}
                     </div>
                     {winners.length > 1 && (
-                      <p className="text-xs text-yellow-600 font-bold uppercase mt-2">Ex aequo!</p>
+                      <p className="text-xs text-yellow-600 font-bold uppercase mt-2">{t.tie}</p>
                     )}
                   </div>
                 );
@@ -792,56 +834,13 @@ export default function App() {
                 onClick={() => setGameState('START')}
                 className="w-full py-4 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-colors"
               >
-                ZAGRAJ JESZCZE RAZ
+                {t.playAgain}
               </button>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* Password Prompt */}
-      {showPasswordPrompt && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm space-y-6"
-          >
-            <div className="text-center space-y-2">
-              <div className="bg-yellow-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto">
-                <Lock className="text-yellow-600" size={24} />
-              </div>
-              <h3 className="text-xl font-bold">Panel Rodzica</h3>
-              <p className="text-sm text-gray-500">Wpisz hasło, aby edytować grę</p>
-            </div>
-            <form onSubmit={checkPassword} className="space-y-4">
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-4 rounded-xl border-2 border-gray-100 focus:border-yellow-400 outline-none text-center text-lg"
-                placeholder="Hasło..."
-                autoFocus
-              />
-              <div className="flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setShowPasswordPrompt(false)}
-                  className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl"
-                >
-                  Anuluj
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 py-3 bg-yellow-400 text-white font-bold rounded-xl shadow-lg"
-                >
-                  Wejdź
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
 
       {/* Load Game Prompt */}
       {showLoadPrompt && (
@@ -855,8 +854,8 @@ export default function App() {
               <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto">
                 <Download className="text-blue-600" size={24} />
               </div>
-              <h3 className="text-xl font-bold">Pobierz Grę</h3>
-              <p className="text-sm text-gray-500">Wpisz 6-znakowy kod gry</p>
+              <h3 className="text-xl font-bold">{t.downloadGame}</h3>
+              <p className="text-sm text-gray-500">{t.enterCode}</p>
             </div>
             <form onSubmit={handleLoadGame} className="space-y-4">
               <input 
@@ -864,7 +863,7 @@ export default function App() {
                 value={loadId}
                 onChange={(e) => setLoadId(e.target.value.toUpperCase())}
                 className="w-full p-4 rounded-xl border-2 border-gray-100 focus:border-blue-400 outline-none text-center text-2xl font-mono font-bold"
-                placeholder="KOD..."
+                placeholder={language === 'pl' ? 'KOD...' : 'CODE...'}
                 maxLength={6}
                 autoFocus
               />
@@ -874,14 +873,14 @@ export default function App() {
                   onClick={() => setShowLoadPrompt(false)}
                   className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl"
                 >
-                  Anuluj
+                  {t.cancel}
                 </button>
                 <button 
                   type="submit"
                   disabled={isLoading}
                   className="flex-1 py-3 bg-blue-500 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2"
                 >
-                  {isLoading ? <Loader2 className="animate-spin" size={20} /> : 'Pobierz'}
+                  {isLoading ? <Loader2 className="animate-spin" size={20} /> : t.download}
                 </button>
               </div>
             </form>
@@ -894,6 +893,7 @@ export default function App() {
         <ParentPanel 
           checkpoints={checkpoints}
           gameId={gameId}
+          language={language}
           onUpdate={(newCp, newId) => {
             setCheckpoints(newCp);
             setGameId(newId);
@@ -912,7 +912,7 @@ export default function App() {
             className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm space-y-6 text-center"
           >
             <div className="flex justify-between items-center mb-2">
-              <h3 className="text-xl font-bold text-green-800">Udostępnij Grę</h3>
+              <h3 className="text-xl font-bold text-green-800">{t.share}</h3>
               <button onClick={() => setShowShareQR(false)} className="p-2 hover:bg-gray-100 rounded-full">
                 <X size={20} className="text-gray-400" />
               </button>
@@ -928,7 +928,7 @@ export default function App() {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm text-gray-500 font-medium">Link do gry:</p>
+              <p className="text-sm text-gray-500 font-medium">Link:</p>
               <button 
                 onClick={() => {
                   const link = `${window.location.origin}${window.location.pathname}?game=${gameId}`;
@@ -948,7 +948,7 @@ export default function App() {
                 )}
               </button>
               {copiedLink && (
-                <p className="text-[10px] text-green-600 font-bold uppercase animate-pulse">Skopiowano do schowka!</p>
+                <p className="text-[10px] text-green-600 font-bold uppercase animate-pulse">{t.copyLink}</p>
               )}
             </div>
 
@@ -956,7 +956,49 @@ export default function App() {
               onClick={() => setShowShareQR(false)}
               className="w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg"
             >
-              Zamknij
+              {t.enter}
+            </button>
+          </motion.div>
+        </div>
+      )}
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md space-y-6"
+          >
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <div className="bg-blue-100 p-2 rounded-xl">
+                  <HelpCircle className="text-blue-600" size={24} />
+                </div>
+                <h3 className="text-2xl font-black text-blue-900 uppercase">{t.howToPlay}</h3>
+              </div>
+              <button onClick={() => setShowHelp(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X size={24} className="text-gray-400" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((step) => (
+                <div key={step} className="flex gap-4 items-start p-3 rounded-2xl hover:bg-blue-50 transition-colors group">
+                  <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 shadow-lg group-hover:scale-110 transition-transform">
+                    {step}
+                  </div>
+                  <p className="text-gray-700 font-medium leading-tight pt-1">
+                    {t[`helpStep${step}` as keyof typeof t]}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => setShowHelp(false)}
+              className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
+            >
+              {t.close}
             </button>
           </motion.div>
         </div>

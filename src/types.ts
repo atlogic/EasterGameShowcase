@@ -1,3 +1,5 @@
+export type Language = 'pl' | 'en';
+
 export interface Checkpoint {
   id: string;
   name: string;
@@ -33,6 +35,7 @@ export interface TeamInfo {
 
 export interface GameData {
   id: string;
+  parentId: string;
   checkpoints: Checkpoint[];
   createdAt: number;
 }

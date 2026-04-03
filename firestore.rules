@@ -6,12 +6,28 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
     match /games/{gameId} {
-      allow read, write: if true;
+      // Anyone can get a specific game if they have the ID
+      allow get: if true;
+      
+      // Only the owner can list their games or write to them
+      allow list, write: if isAuthenticated() && (
+        (resource == null && request.resource.data.parentId == request.auth.uid) ||
+        (resource != null && resource.data.parentId == request.auth.uid)
+      );
     }
 
     match /sessions/{sessionId} {
-      allow read, write: if true;
+      // Anyone can create a session (to save game results)
+      allow create: if true;
+      
+      // Only the game owner can read the sessions
+      allow read: if isAuthenticated() && 
+        get(/databases/$(database)/documents/games/$(resource.data.gameId)).data.parentId == request.auth.uid;
     }
   }
 }
