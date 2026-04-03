@@ -29,7 +29,8 @@ import {
   QrCode,
   Share2,
   Copy,
-  X
+  X,
+  ChevronRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { QRCodeSVG } from 'qrcode.react';
@@ -57,6 +58,7 @@ export default function App() {
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [showParentPanel, setShowParentPanel] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [activeHelpStep, setActiveHelpStep] = useState<number | null>(1);
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [showLoadPrompt, setShowLoadPrompt] = useState(false);
   const [loadId, setLoadId] = useState('');
@@ -464,6 +466,9 @@ export default function App() {
               </div>
               
               <h2 className="text-3xl font-extrabold text-green-900">{t.title}!</h2>
+              <p className="text-sm text-green-700 font-medium mt-1 mb-4 leading-relaxed">
+                {t.subtitle}
+              </p>
               <p className="text-lg text-gray-600">
                 {checkpoints.length > 0 ? t.welcome : t.firstGame}
               </p>
@@ -963,40 +968,80 @@ export default function App() {
       )}
       {/* Help Modal */}
       {showHelp && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md space-y-6"
+            className="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl w-full max-w-lg my-8"
           >
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="bg-blue-100 p-2 rounded-xl">
-                  <HelpCircle className="text-blue-600" size={24} />
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2.5 rounded-2xl">
+                  <HelpCircle className="text-blue-600" size={28} />
                 </div>
-                <h3 className="text-2xl font-black text-blue-900 uppercase">{t.howToPlay}</h3>
+                <h3 className="text-2xl font-black text-blue-900 uppercase tracking-tight">{t.howToPlay}</h3>
               </div>
               <button onClick={() => setShowHelp(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={24} className="text-gray-400" />
+                <X size={28} className="text-gray-400" />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {[1, 2, 3, 4, 5].map((step) => (
-                <div key={step} className="flex gap-4 items-start p-3 rounded-2xl hover:bg-blue-50 transition-colors group">
-                  <div className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 shadow-lg group-hover:scale-110 transition-transform">
-                    {step}
+                <div 
+                  key={step} 
+                  className={`rounded-2xl border-2 transition-all cursor-pointer overflow-hidden ${
+                    activeHelpStep === step ? 'border-blue-200 bg-blue-50/50' : 'border-gray-100 hover:border-blue-100'
+                  }`}
+                  onClick={() => setActiveHelpStep(activeHelpStep === step ? null : step)}
+                >
+                  <div className="p-4 flex gap-4 items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold shrink-0 shadow-sm transition-colors ${
+                      activeHelpStep === step ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {step}
+                    </div>
+                    <h4 className={`font-bold text-lg transition-colors ${
+                      activeHelpStep === step ? 'text-blue-900' : 'text-gray-700'
+                    }`}>
+                      {t[`helpStep${step}` as keyof typeof t]}
+                    </h4>
+                    <ChevronRight 
+                      size={20} 
+                      className={`ml-auto text-gray-400 transition-transform ${activeHelpStep === step ? 'rotate-90' : ''}`} 
+                    />
                   </div>
-                  <p className="text-gray-700 font-medium leading-tight pt-1">
-                    {t[`helpStep${step}` as keyof typeof t]}
-                  </p>
+                  
+                  <AnimatePresence>
+                    {activeHelpStep === step && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="px-4 pb-4 ml-12"
+                      >
+                        <p className="text-gray-600 leading-relaxed text-sm sm:text-base">
+                          {t[`helpStep${step}Desc` as keyof typeof t]}
+                        </p>
+                        
+                        {step === 2 && (
+                          <div className="mt-4 p-4 bg-white rounded-xl border border-blue-100 shadow-sm space-y-2">
+                            <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">{t.helpExampleTitle}</p>
+                            <p className="text-sm italic text-gray-700">"{t.helpExampleHint}"</p>
+                            <div className="h-px bg-blue-50 my-2" />
+                            <p className="text-sm font-medium text-green-700">"{t.helpExampleTask}"</p>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ))}
             </div>
 
             <button 
               onClick={() => setShowHelp(false)}
-              className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all"
+              className="w-full mt-8 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 transition-all active:scale-95"
             >
               {t.close}
             </button>
