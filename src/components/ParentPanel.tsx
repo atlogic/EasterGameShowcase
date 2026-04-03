@@ -29,8 +29,6 @@ import { GameSession, GameData, Language } from '../types';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  signInWithPopup, 
-  GoogleAuthProvider,
   onAuthStateChanged,
   signOut,
   User
@@ -93,18 +91,6 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, l
     } catch (err: any) {
       console.error("Auth error:", err);
       setAuthError(t.authError || "Błąd autoryzacji");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleGoogleAuth = async () => {
-    setAuthLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (err) {
-      console.error("Google Auth error:", err);
     } finally {
       setAuthLoading(false);
     }
@@ -322,20 +308,6 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, l
               className="w-full py-4 bg-green-600 text-white font-black rounded-xl shadow-lg hover:bg-green-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
             >
               {authLoading ? <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" /> : (isLogin ? t.signIn : t.signUp)}
-            </button>
-
-            <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
-              <div className="relative flex justify-center text-[10px] uppercase font-black text-gray-300 bg-white px-2">LUB</div>
-            </div>
-
-            <button 
-              type="button"
-              onClick={handleGoogleAuth}
-              className="w-full py-3 border-2 border-gray-100 text-gray-600 font-black rounded-xl hover:bg-gray-50 transition-all flex items-center justify-center gap-2 text-sm uppercase"
-            >
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-              {t.googleSignIn}
             </button>
 
             <button 
@@ -699,31 +671,41 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, l
         </div>
 
         {/* Footer */}
-        <div className="p-3 sm:p-4 bg-white border-t flex flex-col sm:flex-row gap-2">
-          <button 
-            onClick={onClose}
-            className="flex-1 py-3 bg-gray-100 text-gray-600 font-black rounded-lg hover:bg-gray-200 transition-colors uppercase tracking-wider text-sm"
-          >
-            {t.cancel}
-          </button>
-          <button 
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`flex-[2] py-3 text-white font-black rounded-lg shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-sm ${
-              isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 hover:scale-[1.01] active:scale-95'
-            }`}
-          >
-            {isSaving ? (
-              <>
-                <div className="w-4 h-4 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                {t.saving}
-              </>
-            ) : (
-              <>
-                <Save size={20} /> {t.saveAndShare}
-              </>
-            )}
-          </button>
+        <div className="p-3 sm:p-4 bg-white border-t flex flex-col sm:flex-row items-center gap-3">
+          <a href="https://buycoffee.to/atlogic" target="_blank" rel="noreferrer" className="flex-shrink-0">
+            <img 
+              src="https://buycoffee.to/static/img/share/share-button-primary.png" 
+              style={{ width: '166px', height: '43px' }} 
+              alt="Postaw mi kawę na buycoffee.to" 
+              referrerPolicy="no-referrer"
+            />
+          </a>
+          <div className="flex-1 flex flex-col sm:flex-row gap-2 w-full">
+            <button 
+              onClick={onClose}
+              className="flex-1 py-3 bg-gray-100 text-gray-600 font-black rounded-lg hover:bg-gray-200 transition-colors uppercase tracking-wider text-sm"
+            >
+              {t.cancel}
+            </button>
+            <button 
+              onClick={handleSave}
+              disabled={isSaving}
+              className={`flex-[2] py-3 text-white font-black rounded-lg shadow-lg transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-sm ${
+                isSaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 hover:scale-[1.01] active:scale-95'
+              }`}
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                  {t.saving}
+                </>
+              ) : (
+                <>
+                  <Save size={20} /> {t.saveAndShare}
+                </>
+              )}
+            </button>
+          </div>
         </div>
         {/* Share Game Modal */}
         {shareGame && (

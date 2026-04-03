@@ -144,7 +144,12 @@ export default function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const gameParam = urlParams.get('game');
     if (gameParam) {
-      handleLoadGameById(gameParam);
+      handleLoadGameById(gameParam).then(success => {
+        if (!success) {
+          // If game not found, clear URL param to avoid confusion
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      });
     }
   }, []);
 
