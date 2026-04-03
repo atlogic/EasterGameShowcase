@@ -1,0 +1,55 @@
+import React, { useEffect, useRef } from 'react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+
+interface QRScannerProps {
+  onScan: (decodedText: string) => void;
+  expectedValue: string;
+}
+
+export const QRScanner: React.FC<QRScannerProps> = ({ onScan, expectedValue }) => {
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+
+  useEffect(() => {
+    scannerRef.current = new Html5QrcodeScanner(
+      "reader",
+      { 
+        fps: 10, 
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0
+      },
+      /* verbose= */ false
+    );
+
+    scannerRef.current.render(
+      (decodedText) => {
+        if (decodedText === expectedValue) {
+          scannerRef.current?.clear();
+          onScan(decodedText);
+        } else {
+          // Optional: handle wrong QR code
+          console.log("Zły kod QR:", decodedText);
+        }
+      },
+      (error) => {
+        // console.warn(error);
+      }
+    );
+
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(err => console.error("Failed to clear scanner", err));
+      }
+    };
+  }, [onScan, expectedValue]);
+
+  return (
+    <div className="w-full max-w-md mx-auto overflow-hidden rounded-2xl border-4 border-yellow-400 bg-white shadow-xl">
+      <div id="reader" className="w-full"></div>
+      <div className="p-4 text-center bg-yellow-50">
+        <p className="text-sm font-medium text-yellow-800">
+          Skieruj aparat na kod QR ukryty w tym miejscu!
+        </p>
+      </div>
+    </div>
+  );
+};
