@@ -854,11 +854,11 @@ export default function App() {
 
       {/* Load Game Prompt */}
       {showLoadPrompt && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-start sm:items-center justify-center p-4 pt-10 sm:pt-4 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm space-y-6"
+            className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm space-y-6 my-auto"
           >
             <div className="text-center space-y-2">
               <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto">
@@ -915,11 +915,11 @@ export default function App() {
 
       {/* Share QR Modal */}
       {showShareQR && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-start sm:items-center justify-center p-4 pt-10 sm:pt-4 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm space-y-6 text-center"
+            className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm space-y-6 text-center my-auto"
           >
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-xl font-bold text-green-800">{t.share}</h3>
@@ -973,11 +973,11 @@ export default function App() {
       )}
       {/* Help Modal */}
       {showHelp && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80] flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[80] flex items-start sm:items-center justify-center p-4 pt-10 sm:pt-4 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl w-full max-w-lg my-8"
+            className="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl w-full max-w-lg my-auto"
           >
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-3">
