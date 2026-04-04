@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "Game": {
+      "title": "Game",
+      "description": "A game configuration with checkpoints",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "parentId": { "type": "string" },
+        "checkpoints": { "type": "array" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "parentId", "checkpoints", "createdAt"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A completed game session with results",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "gameId": { "type": "string" },
+        "teamName": { "type": "string" },
+        "members": { "type": "array" },
+        "results": { "type": "array" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "gameId", "teamName", "members", "results", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/games/{gameId}": {
+      "schema": "Game",
+      "description": "Storage for shared games"
+    },
+    "/sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "Storage for game results"
+    }
+  }
+}

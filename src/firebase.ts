@@ -3,16 +3,16 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyAixW6eSeqm1gZUCFFZkBXK9D3cMukr-2o",
+  authDomain: "gen-lang-client-0141156119.firebaseapp.com",
+  projectId: "gen-lang-client-0141156119",
+  storageBucket: "gen-lang-client-0141156119.firebasestorage.app",
+  messagingSenderId: "1044937503450",
+  appId: "1:1044937503450:web:2257cc201df9e3b4e12be3",
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+export const db = getFirestore(app, "ai-studio-12c665fc-af67-43b9-82df-7aae5ed763e9");
 export const auth = getAuth(app);
 
 export enum OperationType {
