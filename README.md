@@ -1,49 +1,97 @@
-# Easter Egg Hunt 🥚
+# Easter Adventure
 
-An epic outdoor game for children, youth, and adults. Hide eggs, create adventures, and make your children have great fun during the holidays!
+Create a magical Easter egg hunt in minutes.
 
-## Features
-- Create custom routes with riddles and tasks.
-- Generate and print unique QR codes for each checkpoint.
-- Real-time game progress tracking.
-- Photo and audio task confirmation.
-- Multi-language support (Polish, English).
-- Parent panel for game management and history.
+`Easter Adventure` is a mobile-friendly QR scavenger hunt app for families. A parent creates a route, prints QR codes, hides eggs, and kids scan, solve riddles, complete tasks, and race to the treasure.
 
-## Security Notice
-This repository is configured to use environment variables for sensitive information. **Never commit your `.env` file or Firebase configuration files to version control.**
+Live demo: [https://estergames.atlogic.eu/](https://estergames.atlogic.eu/)
 
-## Setup
+## Screenshots
 
-### 1. Firebase Configuration
-You need a Firebase project with:
-- **Firestore Database**
-- **Firebase Authentication** (Google Sign-in and Email/Password enabled)
+![Easter Adventure home screen](./assets/screenshots/Home.jpeg)
+![Easter Adventure bilingual mobile screen](./assets/screenshots/Apps.jpeg)
+![QR eggs ready for play](./assets/screenshots/Eggs%20with%20QRcode.jpeg)
+![Live setup with phone and QR eggs](./assets/screenshots/eggs.jpeg)
 
-### 2. Environment Variables
-Create a `.env` file in the root directory based on `.env.example`:
+## Why People Like It
 
-```env
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-VITE_FIREBASE_FIRESTORE_DATABASE_ID=(default)
-```
+- It turns a simple egg hunt into a real adventure.
+- It is easy to explain in a few seconds.
+- It works in the garden, at home, in school, or during family events.
+- It blends physical play with a lightweight digital experience.
 
-### 3. Firestore Rules
-Deploy the rules from `firestore.rules` to your Firebase project.
+## What You Can Do
 
-### 4. Installation
+- Build custom game routes in the parent panel.
+- Add riddles, hints, images, photo tasks, audio tasks, and evaluations.
+- Generate printable QR checkpoints.
+- Share a game with a simple link or QR code.
+- Play on mobile with built-in QR scanning.
+- Use the app in Polish or English.
+
+## How It Works
+
+1. Create a route.
+2. Print the QR sheet.
+3. Hide the eggs or QR markers.
+4. Open the game on a phone.
+5. Scan, solve, and play your way to the treasure.
+
+## Perfect For
+
+- Parents who want a memorable Easter activity
+- Teachers and event organizers
+- Makers who enjoy playful real-world tech
+- Anyone looking for a reusable QR scavenger hunt template
+
+## Demo
+
+Try the public demo here:
+
+[https://estergames.atlogic.eu/](https://estergames.atlogic.eu/)
+
+## Tech Stack
+
+- React
+- TypeScript
+- Vite
+- Firebase Auth
+- Firestore
+- QRCode generation
+- Mobile QR scanning
+- Cloudflare Pages
+
+## Local Development
+
 ```bash
 npm install
 npm run dev
 ```
 
-## Deployment
-This app is ready to be deployed to Cloudflare Pages or any other static site hosting. Ensure you set the environment variables in your hosting provider's dashboard.
+## Firebase Setup
+
+If you want to run your own copy, create your own Firebase project and configure:
+
+- Firestore Database
+- Firebase Authentication
+- Firestore security rules from `firestore.rules`
+
+This repository uses a public client-side Firebase config, which is normal for Firebase web apps. Access control is enforced by Firebase security rules.
+
+## Security Notes
+
+- Parent-owned game management is protected by Firebase Authentication.
+- Firestore access is restricted by server-side rules.
+- Local env files are ignored in git to avoid accidental commits.
+
+This project is meant to be a public demo and portfolio app, not a high-risk enterprise platform.
+
+## Why This Repo Exists
+
+I wanted to build something playful, useful, and real: not another dashboard, but a tiny product families can actually use during Easter.
+
+If this project made you smile, helped with your holiday plans, or inspired your own interactive game, consider starring the repo.
 
 ## License
+
 MIT
