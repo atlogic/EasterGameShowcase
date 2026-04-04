@@ -6,13 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-
-# Sensitive Firebase configuration files
-firebase-applet-config.json
-firebase-blueprint.json
-firestore.rules
-storage.rules
-
-# Local environment files
-.env.local
-.env.*.local
