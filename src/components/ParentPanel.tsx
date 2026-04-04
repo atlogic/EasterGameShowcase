@@ -239,6 +239,18 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, l
       alert(t.addAtLeastOne);
       return;
     }
+
+    // Basic validation for each checkpoint
+    for (const cp of localCheckpoints) {
+      if (!cp.name.trim() || !cp.hint.trim() || !cp.task.trim()) {
+        alert(language === 'pl' ? 'Wszystkie pola (nazwa, zagadka, zadanie) muszą być wypełnione!' : 'All fields (name, riddle, task) must be filled!');
+        return;
+      }
+      if (cp.name.length > 100 || cp.hint.length > 1000 || cp.task.length > 1000) {
+        alert(language === 'pl' ? 'Niektóre pola są za długie!' : 'Some fields are too long!');
+        return;
+      }
+    }
     
     setIsSaving(true);
     try {
@@ -254,6 +266,8 @@ export const ParentPanel: React.FC<ParentPanelProps> = ({ checkpoints, gameId, l
         msg = t.errorQuota;
       } else if (error.message && error.message.includes("large")) {
         msg = t.errorLarge;
+      } else if (error.message && error.message.includes("permission")) {
+        msg = language === 'pl' ? 'Brak uprawnień do zapisu! Zaloguj się ponownie.' : 'No write permissions! Please log in again.';
       }
       alert(msg);
     } finally {

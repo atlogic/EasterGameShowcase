@@ -1,20 +1,49 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Easter Egg Hunt 🥚
 
-# Run and deploy your AI Studio app
+An epic outdoor game for children, youth, and adults. Hide eggs, create adventures, and make your children have great fun during the holidays!
 
-This contains everything you need to run your app locally.
+## Features
+- Create custom routes with riddles and tasks.
+- Generate and print unique QR codes for each checkpoint.
+- Real-time game progress tracking.
+- Photo and audio task confirmation.
+- Multi-language support (Polish, English).
+- Parent panel for game management and history.
 
-View your app in AI Studio: https://ai.studio/apps/12c665fc-af67-43b9-82df-7aae5ed763e9
+## Security Notice
+This repository is configured to use environment variables for sensitive information. **Never commit your `.env` file or Firebase configuration files to version control.**
 
-## Run Locally
+## Setup
 
-**Prerequisites:**  Node.js
+### 1. Firebase Configuration
+You need a Firebase project with:
+- **Firestore Database**
+- **Firebase Authentication** (Google Sign-in and Email/Password enabled)
 
+### 2. Environment Variables
+Create a `.env` file in the root directory based on `.env.example`:
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_FIRESTORE_DATABASE_ID=(default)
+```
+
+### 3. Firestore Rules
+Deploy the rules from `firestore.rules` to your Firebase project.
+
+### 4. Installation
+```bash
+npm install
+npm run dev
+```
+
+## Deployment
+This app is ready to be deployed to Cloudflare Pages or any other static site hosting. Ensure you set the environment variables in your hosting provider's dashboard.
+
+## License
+MIT

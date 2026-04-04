@@ -10,20 +10,54 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isValidGame(data) {
+      return data.id is string && 
+             data.id.size() == 6 &&
+             data.parentId is string &&
+             data.checkpoints is list &&
+             data.checkpoints.size() > 0 &&
+             data.checkpoints.size() < 50 &&
+             data.createdAt is number;
+    }
+
+    function isValidSession(data) {
+      return data.id is string &&
+             data.gameId is string &&
+             data.gameId.size() == 6 &&
+             data.teamName is string &&
+             data.teamName.size() > 0 &&
+             data.teamName.size() < 100 &&
+             data.members is list &&
+             data.members.size() < 20 &&
+             data.results is list &&
+             data.results.size() < 50 &&
+             data.timestamp is number;
+    }
+
     match /games/{gameId} {
       // Anyone can get a specific game if they have the ID
       allow get: if true;
       
       // Only the owner can list their games or write to them
-      allow list, write: if isAuthenticated() && (
-        (resource == null && request.resource.data.parentId == request.auth.uid) ||
-        (resource != null && resource.data.parentId == request.auth.uid)
-      );
+      allow list: if isAuthenticated() && resource.data.parentId == request.auth.uid;
+      
+      allow create: if isAuthenticated() && 
+                      request.resource.data.parentId == request.auth.uid &&
+                      isValidGame(request.resource.data);
+                      
+      allow update: if isAuthenticated() && 
+                      resource.data.parentId == request.auth.uid &&
+                      request.resource.data.parentId == request.auth.uid &&
+                      isValidGame(request.resource.data);
+                      
+      allow delete: if isAuthenticated() && resource.data.parentId == request.auth.uid;
     }
 
     match /sessions/{sessionId} {
       // Anyone can create a session (to save game results)
-      allow create: if true;
+      // But we validate the data and ensure it's linked to a valid game
+      allow create: if isValidSession(request.resource.data) && 
+                      exists(/databases/$(database)/documents/games/$(request.resource.data.gameId));
       
       // Only the game owner can read the sessions
       allow read: if isAuthenticated() && 
