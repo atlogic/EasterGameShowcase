@@ -4,7 +4,7 @@ Create a magical Easter egg hunt in minutes.
 
 `Easter Adventure` is a mobile-friendly QR scavenger hunt app for families. A parent creates a route, prints QR codes, hides eggs, and kids scan, solve riddles, complete tasks, and race to the treasure.
 
-Live demo: [https://estergames.atlogic.eu/](https://eastergames.atlogic.eu/)
+Live demo: [https://estergame.atlogic.eu/](https://eastergames.atlogic.eu/)
 
 ## Screenshots
 
@@ -48,7 +48,7 @@ Live demo: [https://estergames.atlogic.eu/](https://eastergames.atlogic.eu/)
 
 Try the public demo here:
 
-[https://estergames.atlogic.eu/](https://eastergames.atlogic.eu/)
+[https://estergames.atlogic.eu/](https://eastergame.atlogic.eu/)
 
 ## Tech Stack
 
