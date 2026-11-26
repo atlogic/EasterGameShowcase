@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { QRScanner } from './components/QRScanner';
@@ -389,7 +390,7 @@ export default function App() {
           <div className="bg-yellow-400 p-2 rounded-full shadow-md">
             <Egg className="text-white" size={24} />
           </div>
-          <h1 className="text-lg sm:text-xl font-bold text-green-800 truncate max-w-[150px] sm:max-w-none">
+          <h1 className="text-lg sm:text-xl font-bold text-green-800 truncate max-w-[150px] sm:max-w-none"><img src={import.meta.env.BASE_URL + "app-icons/v1/apple-touch-icon.png"} width={24} height={24} alt="" className="inline-block align-middle me-2 rounded-md shrink-0" />
             {t.title}
           </h1>
         </div>
